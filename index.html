@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Clip Forge — Trim &amp; Join MP4 / Audio in your browser</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%9C%82%EF%B8%8F%3C/text%3E%3C/svg%3E" />
+  <meta name="description" content="A free, private, in-browser MP4 and audio editor. Trim clips and join multiple files together. Everything runs locally — no uploads." />
+  <!-- Cross-origin isolation shim so SharedArrayBuffer (required by ffmpeg.wasm) works on GitHub Pages -->
+  <script src="coi-serviceworker.js"></script>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">◆</span>
+      <div>
+        <h1>Clip Forge</h1>
+        <p class="tagline">Trim &amp; join MP4 / audio — 100% in your browser</p>
+      </div>
+    </div>
+    <a class="gh" href="https://github.com/riteshdhemla/music_edit" target="_blank" rel="noopener">Source</a>
+  </header>
+
+  <main>
+    <section class="privacy-note">
+      <strong>Private by design.</strong> Your files never leave this device — all editing happens
+      locally with WebAssembly. Nothing is uploaded to any server.
+    </section>
+
+    <!-- Engine status -->
+    <section id="enginePanel" class="panel">
+      <div class="engine-status">
+        <span id="engineDot" class="dot loading"></span>
+        <span id="engineText">Starting editing engine…</span>
+      </div>
+      <div class="engine-progress-wrap">
+        <div id="engineProgress" class="engine-progress"></div>
+      </div>
+      <p id="isolationWarn" class="warn hidden">
+        Cross-origin isolation is not active yet. The page will reload automatically the first
+        time you visit. If this message persists, try a hard refresh (Ctrl/Cmd&nbsp;+&nbsp;Shift&nbsp;+&nbsp;R).
+      </p>
+    </section>
+
+    <!-- Drop zone -->
+    <section id="dropZone" class="dropzone">
+      <input type="file" id="fileInput" accept="video/mp4,video/*,audio/*" multiple hidden />
+      <div class="dropzone-inner">
+        <div class="dz-icon">⬇</div>
+        <p><strong>Drop files here</strong> or <button type="button" id="browseBtn" class="linkbtn">browse</button></p>
+        <p class="hint">MP4, MOV, WebM, MP3, WAV, M4A… Add several to join them.</p>
+      </div>
+    </section>
+
+    <!-- File list -->
+    <section id="fileList" class="filelist hidden">
+      <div class="filelist-head">
+        <h2>Files <span id="fileCount" class="count">0</span></h2>
+        <div class="filelist-actions">
+          <button type="button" id="clearBtn" class="ghost">Clear all</button>
+        </div>
+      </div>
+      <ul id="items"></ul>
+      <p class="reorder-hint">Drag the ⠿ handle to reorder before joining.</p>
+    </section>
+
+    <!-- Actions -->
+    <section id="actions" class="actions hidden">
+      <div class="action-card">
+        <h3>Trim a single file</h3>
+        <p class="muted">Select exactly one file above, set the start &amp; end, then export the clip.</p>
+        <div class="trim-controls">
+          <label>Start
+            <input type="text" id="trimStart" value="00:00:00" inputmode="text" />
+          </label>
+          <label>End
+            <input type="text" id="trimEnd" placeholder="00:00:10" inputmode="text" />
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" id="reencodeTrim" />
+            Re-encode (slower, frame-accurate)
+          </label>
+        </div>
+        <button type="button" id="trimBtn" class="primary" disabled>Trim &amp; export</button>
+      </div>
+
+      <div class="action-card">
+        <h3>Join files</h3>
+        <p class="muted">Concatenate all files above, top to bottom. Best when files share the same
+          codec/resolution — otherwise enable re-encode.</p>
+        <label class="checkbox">
+          <input type="checkbox" id="reencodeJoin" checked />
+          Re-encode to a common format (recommended for mixed sources)
+        </label>
+        <button type="button" id="joinBtn" class="primary" disabled>Join &amp; export</button>
+      </div>
+    </section>
+
+    <!-- Output -->
+    <section id="output" class="output hidden">
+      <h2>Result</h2>
+      <div id="outMedia" class="out-media"></div>
+      <a id="downloadLink" class="primary download" download>Download</a>
+    </section>
+
+    <!-- Log -->
+    <section class="logpanel">
+      <details>
+        <summary>Engine log</summary>
+        <pre id="log" class="log"></pre>
+      </details>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>Built with <a href="https://ffmpegwasm.netlify.app/" target="_blank" rel="noopener">ffmpeg.wasm</a>.
+       Runs entirely client-side. No tracking, no uploads.</p>
+  </footer>
+
+  <!-- ffmpeg.wasm (0.11 UMD) — proven to work on static hosts with the coi shim above -->
+  <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
