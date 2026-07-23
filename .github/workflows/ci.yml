@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate (syntax + assets)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Check JavaScript syntax
+        run: |
+          node --check js/app.js
+          node --check coi-serviceworker.js
+
+      - name: Static validation (assets + DOM ids)
+        run: node scripts/validate.mjs
+
+  smoke:
+    name: Smoke test (headless browser)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Playwright browser (Chromium)
+        run: npx playwright install --with-deps chromium
+
+      - name: Run smoke test
+        run: npm run smoke
