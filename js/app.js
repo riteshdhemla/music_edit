@@ -205,6 +205,21 @@ function extOf(name) {
   return m ? m[1].toLowerCase() : "mp4";
 }
 
+const AUDIO_EXTS = new Set([
+  "mp3", "wav", "m4a", "aac", "ogg", "oga", "opus", "flac", "wma", "aiff", "aif",
+]);
+function isAudioFile(name) {
+  return AUDIO_EXTS.has(extOf(name));
+}
+
+// FFmpeg audio encoder to use for a given output extension.
+function audioCodecFor(ext) {
+  return ({
+    mp3: "libmp3lame", m4a: "aac", aac: "aac", ogg: "libvorbis", oga: "libvorbis",
+    opus: "libopus", flac: "flac", wav: "pcm_s16le",
+  })[ext] || "aac";
+}
+
 function refreshButtons() {
   trimBtn.disabled = !ready || running || !selectedId;
   joinBtn.disabled = !ready || running || files.length < 2;
@@ -246,7 +261,13 @@ async function doTrim() {
     const duration = (end - start).toFixed(3);
     let args = ["-ss", String(start), "-i", inName, "-t", duration];
     if (reencodeTrim.checked) {
-      args = args.concat(["-c:v", "libx264", "-preset", "veryfast", "-c:a", "aac"]);
+      if (isAudioFile(f.name)) {
+        // Audio-only: pick an encoder that matches the container (no video codec).
+        args = args.concat(["-c:a", audioCodecFor(ext)]);
+        if (ext === "mp3") args = args.concat(["-q:a", "2"]);
+      } else {
+        args = args.concat(["-c:v", "libx264", "-preset", "veryfast", "-c:a", "aac"]);
+      }
     } else {
       args = args.concat(["-c", "copy"]);
     }
@@ -273,13 +294,43 @@ async function doJoin() {
   setRunning(joinBtn, true);
   engineText.textContent = "Joining…";
 
-  const outExt = reencodeJoin.checked ? "mp4" : extOf(files[0].name);
+  // Audio-only joins need an audio-specific pipeline (no video streams to map).
+  const audioOnly = files.every((f) => isAudioFile(f.name));
+  const outExt = reencodeJoin.checked
+    ? (audioOnly ? "mp3" : "mp4")
+    : extOf(files[0].name);
   const outName = "joined." + outExt;
   const written = [];
 
   try {
-    if (reencodeJoin.checked) {
-      // Robust path: normalise + concat filter — handles mixed codecs/resolutions.
+    if (reencodeJoin.checked && audioOnly) {
+      // Robust audio path: resample every input to a common format, then concat.
+      // This produces one clean file with a correct duration — fixing the
+      // "second track won't play" problem you get from stream-copying MP3s.
+      const inputs = [];
+      for (let i = 0; i < files.length; i++) {
+        const nm = `j${i}.${extOf(files[i].name)}`;
+        ffmpeg.FS("writeFile", nm, await fetchFile(files[i].file));
+        written.push(nm);
+        inputs.push(nm);
+      }
+      let args = [];
+      inputs.forEach((nm) => { args.push("-i", nm); });
+
+      let filter = "";
+      inputs.forEach((_, i) => {
+        filter += `[${i}:a]aresample=44100,aformat=sample_fmts=fltp:channel_layouts=stereo[a${i}];`;
+      });
+      inputs.forEach((_, i) => { filter += `[a${i}]`; });
+      filter += `concat=n=${inputs.length}:v=0:a=1[outa]`;
+
+      args = args.concat(["-filter_complex", filter, "-map", "[outa]", "-c:a", audioCodecFor(outExt)]);
+      if (outExt === "mp3") args = args.concat(["-q:a", "2"]);
+      args.push(outName);
+      log("$ ffmpeg " + args.join(" "));
+      await ffmpeg.run(...args);
+    } else if (reencodeJoin.checked) {
+      // Robust video path: normalise + concat filter — handles mixed codecs/resolutions.
       const inputs = [];
       for (let i = 0; i < files.length; i++) {
         const nm = `j${i}.${extOf(files[i].name)}`;
@@ -330,7 +381,8 @@ async function doJoin() {
     log("ERROR: " + (err?.message || String(err)));
     alert(
       "Join failed. See the engine log. If you used the fast (stream-copy) path, " +
-      "enable 'Re-encode to a common format' — the files likely have different codecs or resolutions."
+      "enable 'Re-encode to a common format' — the files likely have different codecs, " +
+      "sample rates, or resolutions."
     );
   } finally {
     setRunning(joinBtn, false);

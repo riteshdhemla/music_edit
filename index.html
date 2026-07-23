@@ -87,11 +87,11 @@
 
       <div class="action-card">
         <h3>Join files</h3>
-        <p class="muted">Concatenate all files above, top to bottom. Best when files share the same
-          codec/resolution — otherwise enable re-encode.</p>
+        <p class="muted">Concatenate all files above, top to bottom. Works for video and audio
+          (e.g. MP3). Keep re-encode on unless every file has identical codec/sample-rate.</p>
         <label class="checkbox">
           <input type="checkbox" id="reencodeJoin" checked />
-          Re-encode to a common format (recommended for mixed sources)
+          Re-encode to a common format (recommended — fixes gaps &amp; second-track dropout)
         </label>
         <button type="button" id="joinBtn" class="primary" disabled>Join &amp; export</button>
       </div>
